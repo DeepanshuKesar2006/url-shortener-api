@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snip — URL Shortener</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0E14;
+    --surface:#141922;
+    --surface-2:#1B2230;
+    --border:#262D3B;
+    --text:#E8ECF3;
+    --muted:#7C8699;
+    --accent:#5EEAD4;
+    --accent-dim:#1C3833;
+    --accent-2:#F2B84B;
+    --danger:#F2755A;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'IBM Plex Mono',monospace;
+    line-height:1.5;
+    min-height:100vh;
+  }
+  h1,h2,.brand{font-family:'Space Grotesk',sans-serif;}
+  .wrap{max-width:720px;margin:0 auto;padding:40px 24px 80px;}
+
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:48px;}
+  .brand{font-size:20px;font-weight:700;color:var(--text);letter-spacing:-0.02em;}
+  .brand span{color:var(--accent);}
+
+  .auth-area{display:flex;gap:8px;align-items:center;font-size:13px;}
+  .auth-area .pill{color:var(--muted);}
+  button, input{font-family:inherit;}
+
+  .btn{
+    background:var(--accent);
+    color:#071512;
+    border:none;
+    padding:9px 16px;
+    border-radius:6px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .btn:hover{opacity:0.9;}
+  .btn.ghost{
+    background:transparent;
+    color:var(--text);
+    border:1px solid var(--border);
+  }
+  .btn.small{padding:6px 12px;font-size:12px;}
+  .btn.danger{background:var(--danger);color:#2b0b05;}
+
+  h1{font-size:30px;font-weight:700;margin:0 0 6px;letter-spacing:-0.02em;}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 32px;}
+
+  .panel{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:20px;
+    margin-bottom:20px;
+  }
+
+  label{display:block;font-size:11px;color:var(--muted);margin-bottom:6px;}
+  input[type=text], input[type=url], input[type=number], input[type=password]{
+    width:100%;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:10px 12px;
+    border-radius:6px;
+    font-size:14px;
+    margin-bottom:14px;
+  }
+  input:focus{outline:2px solid var(--accent);outline-offset:1px;}
+
+  .row{display:flex;gap:14px;}
+  .row > div{flex:1;}
+
+  #result{display:none;}
+  .result-url{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    background:var(--accent-dim);
+    border:1px solid #2E5A50;
+    border-radius:8px;
+    padding:14px 16px;
+    margin-bottom:14px;
+  }
+  .result-url a{color:var(--accent);font-weight:600;font-size:15px;text-decoration:none;word-break:break-all;}
+  .result-meta{display:flex;gap:20px;align-items:center;font-size:12px;color:var(--muted);flex-wrap:wrap;}
+  .result-meta img{width:72px;height:72px;border-radius:6px;border:1px solid var(--border);background:#fff;padding:4px;}
+  .stat-num{color:var(--accent-2);font-weight:600;font-size:14px;}
+
+  .error{color:var(--danger);font-size:13px;margin:-6px 0 14px;}
+  .hint{font-size:11px;color:var(--muted);margin-top:-8px;margin-bottom:14px;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;color:var(--muted);font-weight:500;font-size:11px;padding:8px 10px;border-bottom:1px solid var(--border);}
+  td{padding:10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  td.url-cell{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);}
+  td a.code-link{color:var(--accent);text-decoration:none;}
+
+  .empty{color:var(--muted);font-size:13px;padding:10px 0;}
+
+  .auth-form{display:flex;gap:8px;align-items:flex-end;}
+  .auth-form input{margin-bottom:0;width:140px;}
+  .auth-form label{display:none;}
+
+  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:40px;}
+  footer a{color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">snip<span>.</span></div>
+    <div class="auth-area" id="authArea"></div>
+  </div>
+
+  <h1>Make long links short.</h1>
+  <p class="sub">Paste a URL, optionally pick a custom code, and get a trackable short link with a QR code.</p>
+
+  <div class="panel">
+    <label for="url">Long URL</label>
+    <input type="url" id="url" placeholder="https://example.com/a/very/long/path">
+
+    <div class="row">
+      <div>
+        <label for="alias">Custom alias (optional)</label>
+        <input type="text" id="alias" placeholder="my-event">
+      </div>
+      <div>
+        <label for="expiry">Expires in days (optional)</label>
+        <input type="number" id="expiry" placeholder="e.g. 7" min="1">
+      </div>
+    </div>
+
+    <div class="error" id="formError" style="display:none;"></div>
+    <button class="btn" id="shortenBtn" style="width:100%;">Shorten</button>
+  </div>
+
+  <div class="panel" id="result">
+    <div class="result-url">
+      <a id="resultLink" href="#" target="_blank"></a>
+      <button class="btn small ghost" id="copyBtn">Copy</button>
+    </div>
+    <div class="result-meta">
+      <img id="resultQr" alt="QR code">
+      <span>Clicks: <span class="stat-num" id="resultClicks">0</span></span>
+      <button class="btn small ghost" id="refreshBtn">Refresh clicks</button>
+    </div>
+  </div>
+
+  <div class="panel" id="myLinksPanel" style="display:none;">
+    <h2 style="font-size:15px;margin:0 0 14px;">Your links</h2>
+    <table>
+      <thead>
+        <tr><th>Code</th><th>URL</th><th>Clicks</th><th></th></tr>
+      </thead>
+      <tbody id="myLinksBody"></tbody>
+    </table>
+    <div class="empty" id="myLinksEmpty" style="display:none;">No links yet — create one above.</div>
+  </div>
+
+  <footer>Full interactive API reference at <a href="/docs">/docs</a></footer>
+</div>
+
+<script>
+const API = window.location.origin;
+let token = localStorage.getItem('snip_token');
+let username = localStorage.getItem('snip_username');
+
+function authHeaders(){
+  return token ? { 'Authorization': 'Bearer ' + token } : {};
+}
+
+function renderAuthArea(){
+  const el = document.getElementById('authArea');
+  if (token && username){
+    el.innerHTML = `<span class="pill">logged in as ${username}</span>
+      <button class="btn small ghost" id="logoutBtn">Log out</button>`;
+    document.getElementById('logoutBtn').onclick = logout;
+    document.getElementById('myLinksPanel').style.display = 'block';
+    loadMyLinks();
+  } else {
+    el.innerHTML = `<button class="btn small ghost" id="loginToggle">Log in</button>
+      <button class="btn small" id="registerToggle">Sign up</button>`;
+    document.getElementById('loginToggle').onclick = () => showAuthForm('login');
+    document.getElementById('registerToggle').onclick = () => showAuthForm('register');
+    document.getElementById('myLinksPanel').style.display = 'none';
+  }
+}
+
+function showAuthForm(mode){
+  const el = document.getElementById('authArea');
+  el.innerHTML = `
+    <div class="auth-form">
+      <input type="text" id="authUser" placeholder="username">
+      <input type="password" id="authPass" placeholder="password">
+      <button class="btn small" id="authSubmit">${mode === 'login' ? 'Log in' : 'Sign up'}</button>
+      <button class="btn small ghost" id="authCancel">x</button>
+    </div>`;
+  document.getElementById('authCancel').onclick = renderAuthArea;
+  document.getElementById('authSubmit').onclick = () => submitAuth(mode);
+}
+
+async function submitAuth(mode){
+  const user = document.getElementById('authUser').value.trim();
+  const pass = document.getElementById('authPass').value;
+  if (!user || !pass) return;
+
+  if (mode === 'register'){
+    const r = await fetch(`${API}/auth/register`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({username:user, password:pass})
+    });
+    if (!r.ok){ alert((await r.json()).detail || 'Registration failed'); return; }
+  }
+
+  const form = new URLSearchParams();
+  form.append('username', user); form.append('password', pass);
+  const loginRes = await fetch(`${API}/auth/login`, { method:'POST', body: form });
+  if (!loginRes.ok){ alert('Login failed — check your username and password'); return; }
+  const data = await loginRes.json();
+  token = data.access_token; username = user;
+  localStorage.setItem('snip_token', token);
+  localStorage.setItem('snip_username', username);
+  renderAuthArea();
+}
+
+function logout(){
+  token = null; username = null;
+  localStorage.removeItem('snip_token'); localStorage.removeItem('snip_username');
+  renderAuthArea();
+}
+
+async function shorten(){
+  const url = document.getElementById('url').value.trim();
+  const alias = document.getElementById('alias').value.trim();
+  const expiry = document.getElementById('expiry').value;
+  const errEl = document.getElementById('formError');
+  errEl.style.display = 'none';
+
+  if (!url){ errEl.textContent = 'Enter a URL first.'; errEl.style.display='block'; return; }
+
+  const body = { original_url: url };
+  if (alias) body.custom_alias = alias;
+  if (expiry) body.expires_in_days = parseInt(expiry, 10);
+
+  const r = await fetch(`${API}/links`, {
+    method:'POST',
+    headers: {'Content-Type':'application/json', ...authHeaders()},
+    body: JSON.stringify(body)
+  });
+  const data = await r.json();
+  if (!r.ok){
+    errEl.textContent = data.detail || 'Something went wrong.';
+    errEl.style.display = 'block';
+    return;
+  }
+  showResult(data.short_code, data.click_count);
+  if (token) loadMyLinks();
+}
+
+async function showResult(code, clicks){
+  const shortUrl = `${API}/${code}`;
+  document.getElementById('resultLink').textContent = shortUrl;
+  document.getElementById('resultLink').href = shortUrl;
+  document.getElementById('resultClicks').textContent = clicks;
+  document.getElementById('result').style.display = 'block';
+  document.getElementById('result').dataset.code = code;
+
+  const qrRes = await fetch(`${API}/links/${code}/qrcode`);
+  const qrData = await qrRes.json();
+  document.getElementById('resultQr').src = qrData.qr_code_base64;
+}
+
+async function refreshClicks(){
+  const code = document.getElementById('result').dataset.code;
+  if (!code) return;
+  const r = await fetch(`${API}/links/${code}/stats`);
+  const data = await r.json();
+  document.getElementById('resultClicks').textContent = data.click_count;
+}
+
+async function loadMyLinks(){
+  const r = await fetch(`${API}/links/mine`, { headers: authHeaders() });
+  if (!r.ok) return;
+  const links = await r.json();
+  const body = document.getElementById('myLinksBody');
+  const empty = document.getElementById('myLinksEmpty');
+  body.innerHTML = '';
+  if (links.length === 0){ empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  links.forEach(link => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><a class="code-link" href="/${link.short_code}" target="_blank">/${link.short_code}</a></td>
+      <td class="url-cell" title="${link.original_url}">${link.original_url}</td>
+      <td>${link.click_count}</td>
+      <td><button class="btn small danger" data-code="${link.short_code}">Delete</button></td>`;
+    tr.querySelector('button').onclick = () => deleteLink(link.short_code);
+    body.appendChild(tr);
+  });
+}
+
+async function deleteLink(code){
+  if (!confirm(`Delete /${code}?`)) return;
+  await fetch(`${API}/links/${code}`, { method:'DELETE', headers: authHeaders() });
+  loadMyLinks();
+}
+
+document.getElementById('shortenBtn').onclick = shorten;
+document.getElementById('copyBtn').onclick = () => {
+  navigator.clipboard.writeText(document.getElementById('resultLink').href);
+  const btn = document.getElementById('copyBtn');
+  btn.textContent = 'Copied'; setTimeout(() => btn.textContent = 'Copy', 1200);
+};
+document.getElementById('refreshBtn').onclick = refreshClicks;
+
+renderAuthArea();
+</script>
+</body>
+</html>
